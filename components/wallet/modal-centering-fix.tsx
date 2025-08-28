@@ -27,9 +27,7 @@ export function ModalCenteringFix() {
           modal.style.setProperty('bottom', '0', 'important')
           modal.style.setProperty('width', '100vw', 'important')
           modal.style.setProperty('height', '100vh', 'important')
-          modal.style.setProperty('display', 'flex', 'important')
-          modal.style.setProperty('align-items', 'center', 'important')
-          modal.style.setProperty('justify-content', 'center', 'important')
+          modal.style.setProperty('display', 'block', 'important')
           // Slight dim without blur so content remains crisp
           modal.style.setProperty('background', 'rgba(0, 0, 0, 0.55)', 'important')
           modal.style.setProperty('z-index', '99999', 'important')
@@ -38,11 +36,11 @@ export function ModalCenteringFix() {
           // Find the actual modal content and center it
           const modalContent = modal.querySelector('.wallet-adapter-modal, [data-reach-dialog-content], [role="dialog"]') as HTMLElement
           if (modalContent) {
-            modalContent.style.setProperty('position', 'relative', 'important')
-            modalContent.style.setProperty('margin', 'auto', 'important')
-            modalContent.style.setProperty('transform', 'none', 'important')
-            modalContent.style.setProperty('top', 'auto', 'important')
-            modalContent.style.setProperty('left', 'auto', 'important')
+            modalContent.style.setProperty('position', 'fixed', 'important')
+            modalContent.style.setProperty('top', '50%', 'important')
+            modalContent.style.setProperty('left', '50%', 'important')
+            modalContent.style.setProperty('transform', 'translate(-50%, -50%)', 'important')
+            modalContent.style.setProperty('margin', '0', 'important')
             modalContent.style.setProperty('right', 'auto', 'important')
             modalContent.style.setProperty('bottom', 'auto', 'important')
             modalContent.style.setProperty('max-width', '450px', 'important')
