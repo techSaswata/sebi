@@ -7,9 +7,9 @@ import Providers from "@/components/providers"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "SaaSify - Streamline Your Workflow",
-  description: "Boost productivity, reduce costs, and scale your business with our all-in-one SaaS platform.",
-    generator: 'v0.app'
+  title: "NyayChain - Tokenized Bond Trading Platform",
+  description: "Secure, low-cost, and efficient tokenized corporate bond trading on Solana blockchain. Trade bonds with USDC, manage portfolios, and access AI-driven insights.",
+  generator: 'Next.js'
 }
 
 export default function RootLayout({

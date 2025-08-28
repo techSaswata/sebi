@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Moon, Sun, Menu, X, ChevronRight } from "lucide-react"
 import { useTheme } from "next-themes"
 import { ConnectWalletButton } from "@/components/wallet/connect-wallet"
+import { AuthButtons } from "@/components/auth/auth-buttons"
 
 export function Header() {
   const [isScrolled, setIsScrolled] = useState(false)
@@ -79,6 +80,7 @@ export function Header() {
             <span className="sr-only">Toggle theme</span>
           </Button>
           <ConnectWalletButton className="rounded-full h-9 px-4" />
+          <AuthButtons />
         </div>
 
         <div className="flex items-center gap-4 md:hidden">
@@ -121,10 +123,9 @@ export function Header() {
             </Link>
             <div className="flex flex-col gap-2 pt-2 border-t">
               <ConnectWalletButton className="rounded-full h-10 px-4" />
-              <Button className="rounded-full">
-                Get Started
-                <ChevronRight className="ml-1 size-4" />
-              </Button>
+              <div className="flex justify-center">
+                <AuthButtons />
+              </div>
             </div>
           </div>
         </motion.div>
