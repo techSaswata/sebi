@@ -55,16 +55,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           
           // Create user profile if it doesn't exist
           try {
-            await fetch('/api/auth/profile', {
+            const response = await fetch('/api/auth/profile', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                userId: session.user.id,
-                displayName: session.user.user_metadata?.display_name || 
-                           session.user.user_metadata?.full_name ||
-                           session.user.email?.split('@')[0]
-              })
+              credentials: 'include', // Include cookies for session
             })
+            
+            const result = await response.json()
+            if (!result.success) {
+              console.error('Profile creation failed:', result.error)
+            } else {
+              console.log('Profile creation result:', result.message)
+            }
           } catch (error) {
             console.error('Error creating user profile:', error)
           }

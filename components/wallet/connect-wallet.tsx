@@ -1,27 +1,25 @@
 "use client"
-import { useState, useEffect } from "react"
-import { WalletMultiButton } from "@solana/wallet-adapter-react-ui"
-import { Button } from "@/components/ui/button"
 
-// Optional wrapper to control sizing/shape to match template buttons
+import { EnhancedWalletButton } from "./enhanced-wallet-button"
+
+// Wrapper to maintain compatibility with existing usage
 export function ConnectWalletButton({
   className = "rounded-full h-9 px-4",
+  showBalance = false,
+  variant = "default" as const,
+  size = "default" as const,
 }: {
   className?: string
+  showBalance?: boolean
+  variant?: "default" | "outline" | "ghost"
+  size?: "sm" | "default" | "lg"
 }) {
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  if (!mounted) {
-    return (
-      <Button className={className} disabled>
-        Connect Wallet
-      </Button>
-    )
-  }
-
-  return <WalletMultiButton className={className} />
+  return (
+    <EnhancedWalletButton 
+      className={className}
+      showBalance={showBalance}
+      variant={variant}
+      size={size}
+    />
+  )
 }

@@ -20,6 +20,7 @@ import {
   RefreshCw
 } from "lucide-react"
 import { ConnectWalletButton } from "@/components/wallet/connect-wallet"
+import { EnhancedWalletButton } from "@/components/wallet/enhanced-wallet-button"
 import { toast } from "sonner"
 
 interface WalletInfo {
@@ -150,9 +151,9 @@ export function WalletStatus() {
                 Connect your Solana wallet to start trading bonds and manage your portfolio.
               </p>
             </div>
-            <ConnectWalletButton className="w-full" />
+            <EnhancedWalletButton className="w-full" variant="default" />
             <div className="text-xs text-muted-foreground">
-              Supports Phantom, Solflare, and other Solana wallets
+              Supports Phantom, Solflare, Torus, and Ledger wallets
             </div>
           </div>
         </CardContent>

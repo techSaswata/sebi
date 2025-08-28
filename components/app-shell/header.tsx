@@ -79,7 +79,7 @@ export function Header() {
             )}
             <span className="sr-only">Toggle theme</span>
           </Button>
-          <ConnectWalletButton className="rounded-full h-9 px-4" />
+          <ConnectWalletButton className="rounded-full h-9 px-4" showBalance={true} />
           <AuthButtons />
         </div>
 
