@@ -1,0 +1,18 @@
+[programs.localnet]
+sebi = "FPrNfqSjEL59H3PAEzXK9gU9VwAFXLrMwyFeNZ3dKb7o"
+
+[programs.devnet]
+sebi = "WBA3qQ5QsqopFteQJTvALXgCCGhobXD1ju2cmDJvnHS" # Generated for development
+
+[programs.mainnet]
+sebi = "FPrNfqSjEL59H3PAEzXK9gU9VwAFXLrMwyFeNZ3dKb7o" # For future mainnet deployment
+
+[provider]
+cluster = "devnet"
+wallet = "~/.config/solana/id.json"
+
+[registry]
+url = "https://api.devnet.solana.com"
+
+[scripts]
+test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"

@@ -1,0 +1,37 @@
+{
+  "name": "nyaychain-market",
+  "version": "0.1.0",
+  "scripts": {
+    "build": "anchor build",
+    "clean": "anchor clean",
+    "test": "anchor test",
+    "test:unit": "anchor test --skip-local-validator",
+    "deploy:localnet": "anchor deploy --provider.cluster localnet",
+    "deploy:devnet": "anchor deploy --provider.cluster devnet",
+    "deploy:mainnet": "anchor deploy --provider.cluster mainnet",
+    "setup:devnet": "solana config set --url https://api.devnet.solana.com",
+    "setup:mainnet": "solana config set --url https://api.mainnet-beta.solana.com",
+    "airdrop": "solana airdrop 2",
+    "balance": "solana balance",
+    "config": "solana config get",
+    "logs": "anchor logs",
+    "idl:init": "anchor idl init",
+    "idl:upgrade": "anchor idl upgrade",
+    "verify:deployment": "ts-node scripts/verify-deployment.ts",
+    "create:mint": "ts-node scripts/create_mint.ts",
+    "init:market": "ts-node scripts/init_market.ts",
+    "test:buy": "ts-node scripts/buy.ts",
+    "test:sell": "ts-node scripts/sell.ts",
+    "ts-node": "ts-node"
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "ts-node": "^10.9.1",
+    "typescript": "^4.9.5"
+  },
+  "dependencies": {
+    "@coral-xyz/anchor": "^0.31.1",
+    "@solana/spl-token": "^0.3.5",
+    "@solana/web3.js": "^1.70.0"
+  }
+}
