@@ -4,17 +4,7 @@ import type React from "react"
 import { useMemo } from "react"
 import { clusterApiUrl } from "@solana/web3.js"
 import { ConnectionProvider, WalletProvider } from "@solana/wallet-adapter-react"
-import { WalletModalProviderClientOnly } from "@/components/wallet/wallet-client-only"
-import { ModalCenteringFix } from "@/components/wallet/modal-centering-fix"
-import { 
-  PhantomWalletAdapter, 
-  SolflareWalletAdapter,
-  TorusWalletAdapter,
-  LedgerWalletAdapter
-} from "@solana/wallet-adapter-wallets"
-
-// Isolated wallet adapter styles (doesn't affect core UI)
-import "../../styles/wallet-adapter.css"
+import { PhantomWalletAdapter } from "@solana/wallet-adapter-wallets"
 
 type Props = {
   children: React.ReactNode
@@ -26,7 +16,7 @@ export function SolanaProvider({ children }: Props) {
     return process.env.NEXT_PUBLIC_SOLANA_RPC_URL || clusterApiUrl("devnet")
   }, [])
 
-  // Configure multiple wallet adapters - only on client side
+  // Configure Phantom wallet only - no popup needed
   const wallets = useMemo(() => {
     // Only initialize wallet adapters on client side
     if (typeof window === 'undefined') {
@@ -34,28 +24,18 @@ export function SolanaProvider({ children }: Props) {
     }
     
     const walletList = [
-      new PhantomWalletAdapter(),
-      new SolflareWalletAdapter(),
-      new TorusWalletAdapter(),
-      new LedgerWalletAdapter()
+      new PhantomWalletAdapter()
     ]
     
-    // Log wallet readiness after allowing time for extensions to load
+    // Log Phantom wallet readiness
     setTimeout(() => {
-      console.log('SolanaProvider: Wallet readiness check:', walletList.map(w => ({
-        name: w.name,
-        readyState: w.readyState,
-        publicKey: w.publicKey?.toBase58(),
-        available: w.readyState !== 'Unsupported'
-      })))
-      
-      // Also check for wallet extensions in window object
-      console.log('Browser wallet extensions detected:', {
-        phantom: typeof window !== 'undefined' && 'phantom' in window,
-        solflare: typeof window !== 'undefined' && 'solflare' in window,
-        solana: typeof window !== 'undefined' && 'solana' in window,
+      console.log('SolanaProvider: Phantom wallet check:', {
+        name: walletList[0]?.name,
+        readyState: walletList[0]?.readyState,
+        available: walletList[0]?.readyState !== 'Unsupported',
+        phantomExtension: typeof window !== 'undefined' && 'phantom' in window
       })
-    }, 2000) // Increased delay to allow more time for extensions
+    }, 1000)
     
     return walletList
   }, [])
@@ -66,17 +46,14 @@ export function SolanaProvider({ children }: Props) {
         wallets={wallets} 
         autoConnect={false}
         onError={(error) => {
-          console.error('Wallet connection error:', error.message || error)
+          console.error('Phantom wallet connection error:', error.message || error)
           // Don't show error toasts for user cancellation
           if (!error.message?.includes('User rejected')) {
-            console.warn('Wallet error details:', error)
+            console.warn('Phantom wallet error details:', error)
           }
         }}
       >
-        <WalletModalProviderClientOnly>
-          <ModalCenteringFix />
-          {children}
-        </WalletModalProviderClientOnly>
+        {children}
       </WalletProvider>
     </ConnectionProvider>
   )

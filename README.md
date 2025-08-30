@@ -32,72 +32,88 @@ A full-stack decentralized application (DApp) for tokenized corporate bond tradi
 - **Oracle Publisher**: Fetches external price feeds (Aspero API)
 - **Event Reconciler**: Blockchain-database synchronization
 
-## 🚀 Quick Start
+## 🚀 Getting Started After Forking
 
-### Prerequisites
-- Node.js 18+ and npm/pnpm
-- PostgreSQL 14+
-- Redis 6+
-- Solana CLI (for blockchain development)
+### Prerequisites (macOS)
+- **Homebrew** (assumed already installed)
+- **Node.js 18+** and npm/pnpm
+- **Redis** for real-time features
+- **Git** for version control
 
-### 1. Environment Setup
+### 1. Clone Your Forked Repository
 
-Copy and configure environment variables:
 ```bash
-cp .env .env.local
+git clone https://github.com/YOUR_USERNAME/sebi.git
+cd sebi
 ```
 
-Edit `.env.local` with your configuration:
+### 2. Install Required Services (macOS)
+
 ```bash
-# Database
-DATABASE_URL="postgresql://user:password@localhost:5432/nyaychain_db"
-REDIS_URL="redis://localhost:6379"
+# Install Node.js (if not already installed)
+brew install node
 
-# Supabase (already configured)
-NEXT_PUBLIC_SUPABASE_URL=https://jztfredqcnobfqlbodof.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+# Install Redis (required for real-time features)
+brew install redis
 
-# Aspero API (configured)
-ASPERO_API_BASE_URL=https://retail-api.aspero.in
-ASPERO_JWT_TOKEN=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+# Start Redis service
+brew services start redis
 
-# Solana (configure when ready)
-SOLANA_CLUSTER=devnet
-SOLANA_RPC_URL=https://api.devnet.solana.com
-ANCHOR_WALLET_PATH=/path/to/your/wallet.json
-MARKETPLACE_PROGRAM_ID=<your-program-id>
-
-# Security
-JWT_SECRET=your-super-secure-jwt-secret
-ADMIN_API_KEY=admin-secure-key-12345
+# Verify Redis is running
+redis-cli ping
+# Should return: PONG
 ```
 
-### 2. Install Dependencies
+### 3. Install Project Dependencies
 
 ```bash
+# Install all npm dependencies
 npm install
-# or
+
+# Or if you prefer pnpm
+npm install -g pnpm
 pnpm install
 ```
 
-### 3. Database Setup
+### 4. Environment Setup
 
-Create database and run migrations:
+Create your environment file:
 ```bash
-# Create PostgreSQL database
-createdb nyaychain_db
-
-# Run migrations and seed demo data
-npm run db:migrate
+cp .env.local.example .env.local
+# or create manually if the example doesn't exist
+touch .env.local
 ```
 
-### 4. Start Development
+Edit `.env.local`
+
+### 5. Database Setup (Using Supabase)
+
+The project uses **Supabase** as the database, which is already configured. No local PostgreSQL setup required!
+
+### 6. Verify Setup
+
+Check if all services are running:
+```bash
+# Test Redis connection
+redis-cli ping
+
+# Check if Node.js and npm are working
+node --version
+npm --version
+
+# Verify environment variables are loaded
+npm run health-check
+```
+
+### 7. Start Development
 
 #### Option A: Frontend Only
 ```bash
 npm run dev
 ```
-Open [http://localhost:3000](http://localhost:3000)
+- Opens at [http://localhost:3000](http://localhost:3000)
+- All bond data comes from Supabase
+- Real-time features require Redis
 
 #### Option B: Full Stack with Services
 ```bash
@@ -105,13 +121,84 @@ npm run start:full
 ```
 This starts:
 - Next.js frontend (port 3000)
-- Oracle Publisher service
-- Event Reconciler service
+- Oracle Publisher service (fetches live bond prices)
+- Event Reconciler service (blockchain sync)
 
-#### Option C: Services Only
+#### Option C: Services Only (Backend development)
 ```bash
 npm run dev:services
 ```
+
+### 8. Optional: Solana Wallet Setup
+
+For blockchain features, you'll need a Solana wallet:
+
+```bash
+# Install Solana CLI (optional)
+sh -c "$(curl -sSfL https://release.solana.com/v1.18.4/install)"
+
+# Create a new wallet (optional)
+solana-keygen new --outfile ~/.config/solana/id.json
+
+# Get devnet SOL for testing (optional)
+solana airdrop 2 --url devnet
+```
+
+### 9. What Works Out of the Box
+
+✅ **Frontend**: Complete UI with wallet integration  
+✅ **Authentication**: Sign in with Google/Email  
+✅ **Bond Data**: Live bond prices from Aspero API  
+✅ **Database**: All data stored in Supabase  
+✅ **Real-time**: Live updates via Redis pub/sub  
+✅ **Responsive**: Mobile and desktop optimized  
+
+### 10. Troubleshooting
+
+**Redis Connection Error?**
+```bash
+# Make sure Redis is running
+brew services restart redis
+redis-cli ping
+```
+
+**Port 3000 in use?**
+```bash
+# The app will automatically use port 3001
+# Or kill the process using port 3000
+lsof -ti:3000 | xargs kill
+```
+
+**Environment Variables Not Loading?**
+```bash
+# Make sure .env.local exists and has correct format
+ls -la .env.local
+cat .env.local | head -5
+```
+
+**Can't connect to Supabase?**
+- Check your internet connection
+- Verify the Supabase URL and key in .env.local
+- Try accessing the Supabase dashboard directly
+
+### 11. Next Steps
+
+1. **Explore the UI**: Visit [http://localhost:3001](http://localhost:3001)
+2. **Connect a Wallet**: Use Phantom or Solflare wallet
+3. **View Bonds**: Browse available bonds and market data
+4. **Check Real-time**: See live price updates
+5. **Read the Code**: Start with `/app/page.tsx` for the frontend
+6. **Make Changes**: Edit components and see hot-reload in action
+
+---
+
+## 🚀 Quick Start (Original)
+
+### Prerequisites
+- Node.js 18+ and npm/pnpm
+- PostgreSQL 14+ (optional - using Supabase)
+- Redis 6+ (required for real-time features)
+- Solana CLI (for blockchain development)
 
 ## 📚 API Documentation
 

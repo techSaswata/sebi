@@ -5,9 +5,13 @@ import { WalletDebug } from "@/components/wallet/wallet-debug"
 import { WalletClickDebug } from "@/components/wallet/wallet-click-debug"
 import { EnhancedWalletButton } from "@/components/wallet/enhanced-wallet-button"
 import { SimpleWalletTest } from "@/components/wallet/simple-wallet-test"
+import { RealPhantomTest } from "@/components/wallet/real-phantom-test"
+import { ConnectionValidator } from "@/components/wallet/connection-validator"
+import { RealVsMockTest } from "@/components/wallet/real-vs-mock-test"
+import { PhantomTestSummary } from "@/components/wallet/phantom-test-summary"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useWallet } from "@solana/wallet-adapter-react"
-import { WalletMultiButtonClientOnly } from "@/components/wallet/wallet-client-only"
+// Removed WalletMultiButtonClientOnly - using direct Phantom connection
 import { useAuth } from "@/contexts/auth-context"
 
 export default function WalletTestPage() {
@@ -20,13 +24,19 @@ export default function WalletTestPage() {
       <main className="flex-1">
         <div className="container px-4 py-8 space-y-8">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Wallet Connection Test</h1>
+            <h1 className="text-3xl font-bold tracking-tight">Real Phantom Wallet Test</h1>
             <p className="text-muted-foreground">
-              Test and debug Solana wallet connectivity
+              Test actual Phantom wallet connections (not mocking). The top-left component shows real extension detection and Solana network balance.
             </p>
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className="grid gap-6 lg:grid-cols-3">
+            {/* Real Phantom Test - Primary Component */}
+            <RealPhantomTest />
+            
+            {/* Real vs Mock Test */}
+            <RealVsMockTest />
+            
             {/* Wallet Connection */}
             <Card>
               <CardHeader>
@@ -34,20 +44,6 @@ export default function WalletTestPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-4">
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium">Enhanced Wallet Button:</p>
-                    <EnhancedWalletButton 
-                      className="w-full" 
-                      showBalance={true}
-                      variant="default"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium">Standard Wallet Button (for comparison):</p>
-                    <WalletMultiButtonClientOnly className="w-full" />
-                  </div>
-
                   <div className="space-y-2">
                     <p className="text-sm font-medium">Simple Test Component:</p>
                     <SimpleWalletTest />
@@ -72,7 +68,7 @@ export default function WalletTestPage() {
                       <div className="text-sm text-blue-700">
                         <p><strong>To test wallet connection:</strong></p>
                         <ol className="list-decimal list-inside mt-2 space-y-1">
-                          <li>Install Phantom or Solflare wallet extension</li>
+                          <li>Install Phantom wallet extension</li>
                           <li>Create or import a wallet</li>
                           <li>Switch to Devnet in wallet settings</li>
                           <li>Click "Connect Wallet" above</li>
@@ -84,6 +80,31 @@ export default function WalletTestPage() {
               </CardContent>
             </Card>
 
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Connection Validator - Main diagnostic tool */}
+            <ConnectionValidator />
+            
+            {/* Enhanced Wallet Component */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Production Wallet Button</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-4">
+                  This is the actual wallet button used throughout the app:
+                </p>
+                <EnhancedWalletButton 
+                  className="w-full" 
+                  showBalance={true}
+                  variant="default"
+                />
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-2">            
             {/* Debug Information */}
             <WalletDebug />
             
@@ -91,34 +112,8 @@ export default function WalletTestPage() {
             <WalletClickDebug />
           </div>
 
-          {/* Instructions */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Troubleshooting Guide</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4 text-sm">
-                <div>
-                  <h3 className="font-semibold mb-2">Common Issues:</h3>
-                  <ul className="space-y-2 text-muted-foreground">
-                    <li><strong>Wallet not detected:</strong> Make sure you have a Solana wallet extension installed (Phantom, Solflare, etc.)</li>
-                    <li><strong>Connection redirects to wallet site:</strong> The wallet extension may not be properly installed or enabled</li>
-                    <li><strong>Wrong network:</strong> Ensure your wallet is set to Devnet, not Mainnet</li>
-                    <li><strong>RPC errors:</strong> The Solana devnet may be experiencing issues</li>
-                  </ul>
-                </div>
-
-                <div>
-                  <h3 className="font-semibold mb-2">Installation Links:</h3>
-                  <ul className="space-y-1 text-blue-600">
-                    <li><a href="https://phantom.app/" target="_blank" rel="noopener noreferrer" className="hover:underline">• Phantom Wallet</a></li>
-                    <li><a href="https://solflare.com/" target="_blank" rel="noopener noreferrer" className="hover:underline">• Solflare Wallet</a></li>
-                    <li><a href="https://glow.app/" target="_blank" rel="noopener noreferrer" className="hover:underline">• Glow Wallet</a></li>
-                  </ul>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Comprehensive Testing Guide */}
+          <PhantomTestSummary />
         </div>
       </main>
     </div>

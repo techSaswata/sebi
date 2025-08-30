@@ -2,14 +2,13 @@
 
 import { useEffect } from "react"
 import { useWallet, useConnection } from "@solana/wallet-adapter-react"
-import { useWalletModal } from "@solana/wallet-adapter-react-ui"
+// Removed useWalletModal - using direct Phantom connection
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 
 export function WalletClickDebug() {
   const { wallets, wallet, connected, connecting, publicKey, select } = useWallet()
   const { connection } = useConnection()
-  const { visible, setVisible } = useWalletModal()
 
   useEffect(() => {
     console.log('WalletClickDebug: Wallet state changed:', {
@@ -18,9 +17,8 @@ export function WalletClickDebug() {
       walletName: wallet?.adapter.name,
       publicKey: publicKey?.toBase58(),
       totalWallets: wallets.length,
-      modalVisible: visible
     })
-  }, [connected, connecting, wallet, publicKey, wallets.length, visible])
+  }, [connected, connecting, wallet, publicKey, wallets.length])
 
   const testPhantomDirect = async () => {
     console.log('Direct Phantom test...')
@@ -38,13 +36,18 @@ export function WalletClickDebug() {
     }
   }
 
-  const testModalOpen = () => {
-    console.log('Testing modal open...')
-    console.log('Before setVisible(true) - current visible:', visible)
-    setVisible(true)
-    setTimeout(() => {
-      console.log('After setVisible(true) - current visible:', visible)
-    }, 100)
+  const testDirectConnect = async () => {
+    console.log('Testing direct Phantom connection...')
+    try {
+      const phantomWallet = wallets.find(w => w.adapter.name === 'Phantom')
+      if (phantomWallet) {
+        await select(phantomWallet.adapter.name)
+      } else {
+        console.log('Phantom wallet not found')
+      }
+    } catch (error) {
+      console.error('Direct connection error:', error)
+    }
   }
 
   const checkWalletExtensions = () => {
@@ -70,17 +73,17 @@ export function WalletClickDebug() {
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-2 gap-2">
-          <Button onClick={testModalOpen} variant="outline" size="sm">
-            Test Modal Open
+          <Button onClick={testDirectConnect} variant="outline" size="sm">
+            Test Direct Connect
           </Button>
           <Button onClick={testPhantomDirect} variant="outline" size="sm">
-            Direct Phantom
+            Phantom Direct
           </Button>
           <Button onClick={checkWalletExtensions} variant="outline" size="sm">
             Check Extensions
           </Button>
           <Button 
-            onClick={() => console.log('Current state:', { wallets, connected, visible })} 
+            onClick={() => console.log('Current state:', { wallets, connected })} 
             variant="outline" 
             size="sm"
           >
@@ -91,7 +94,7 @@ export function WalletClickDebug() {
         <div className="text-xs space-y-1">
           <div><strong>Connected:</strong> {connected ? 'Yes' : 'No'}</div>
           <div><strong>Connecting:</strong> {connecting ? 'Yes' : 'No'}</div>
-          <div><strong>Modal Visible:</strong> {visible ? 'Yes' : 'No'}</div>
+          <div><strong>Direct Connect:</strong> Phantom Only</div>
           <div><strong>Wallets Found:</strong> {wallets.length}</div>
           <div><strong>Current Wallet:</strong> {wallet?.adapter.name || 'None'}</div>
           {publicKey && (

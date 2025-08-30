@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
 
 export async function POST(request: NextRequest) {
   try {
+    const cookieStore = cookies()
     const { walletAddress, walletType, nickname } = await request.json()
 
     if (!walletAddress || !walletType) {
@@ -17,31 +14,20 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get user from session
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader) {
-      return NextResponse.json(
-        { success: false, error: 'Authentication required' },
-        { status: 401 }
-      )
-    }
-
-    // For now, we'll use the supabase client with RLS
-    // In production, you'd want to verify the JWT token properly
-    
-    // Check if wallet is already linked to any user
-    const { data: existingWallet } = await supabase
-      .from('user_wallets')
-      .select('id, user_id')
-      .eq('wallet_address', walletAddress)
-      .single()
-
-    if (existingWallet) {
-      return NextResponse.json(
-        { success: false, error: 'Wallet is already linked to an account' },
-        { status: 409 }
-      )
-    }
+    // Create Supabase client with user session
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value
+          },
+          set(name: string, value: string, options: any) {},
+          remove(name: string, options: any) {},
+        },
+      }
+    )
 
     // Get current user session
     const { data: { user }, error: userError } = await supabase.auth.getUser()
@@ -123,6 +109,80 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Wallet linking error:', error)
+    return NextResponse.json(
+      { success: false, error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const cookieStore = cookies()
+    const { walletAddress } = await request.json()
+
+    if (!walletAddress) {
+      return NextResponse.json(
+        { success: false, error: 'Wallet address is required' },
+        { status: 400 }
+      )
+    }
+
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value
+          },
+          set(name: string, value: string, options: any) {},
+          remove(name: string, options: any) {},
+        },
+      }
+    )
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    
+    if (userError || !user) {
+      return NextResponse.json(
+        { success: false, error: 'Authentication required' },
+        { status: 401 }
+      )
+    }
+
+    // Remove wallet from user account
+    const { error: deleteError } = await supabase
+      .from('user_wallets')
+      .delete()
+      .eq('user_id', user.id)
+      .eq('wallet_address', walletAddress)
+
+    if (deleteError) {
+      console.error('Error unlinking wallet:', deleteError)
+      return NextResponse.json(
+        { success: false, error: 'Failed to unlink wallet' },
+        { status: 500 }
+      )
+    }
+
+    // Log the activity
+    await supabase
+      .from('user_activity_log')
+      .insert({
+        user_id: user.id,
+        wallet_address: walletAddress,
+        activity_type: 'wallet_unlinked',
+        description: 'Unlinked wallet from account'
+      })
+
+    return NextResponse.json({
+      success: true,
+      message: 'Wallet unlinked successfully'
+    })
+
+  } catch (error) {
+    console.error('Wallet unlinking error:', error)
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

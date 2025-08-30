@@ -2,25 +2,29 @@
 
 import { useState, useEffect } from "react"
 import { useWallet } from "@solana/wallet-adapter-react"
-import { useWalletModal } from "@solana/wallet-adapter-react-ui"
+// Removed useWalletModal - using direct Phantom connection
 import { Button } from "@/components/ui/button"
 import { Wallet } from "lucide-react"
 
 export function SimpleWalletTest() {
-  const { connected, publicKey, wallet, disconnect } = useWallet()
-  const { setVisible } = useWalletModal()
+  const { wallets, connected, publicKey, wallet, disconnect, select } = useWallet()
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
     setMounted(true)
   }, [])
 
-  const handleConnect = () => {
-    console.log("SimpleWalletTest: Connecting...")
-    if (setVisible) {
-      setVisible(true)
-    } else {
-      console.warn("WalletModalProvider not available")
+  const handleConnect = async () => {
+    console.log("SimpleWalletTest: Connecting to Phantom...")
+    try {
+      const phantomWallet = wallets.find(w => w.adapter.name === 'Phantom')
+      if (phantomWallet) {
+        await select(phantomWallet.adapter.name)
+      } else {
+        console.error('Phantom wallet not found')
+      }
+    } catch (error) {
+      console.error('Error connecting to Phantom:', error)
     }
   }
 

@@ -11,9 +11,9 @@
   bottom: 0 !important;
   width: 100vw !important;
   height: 100vh !important;
-  z-index: 99999 !important;
+  z-index: 9999 !important;
   
-  /* Center content */
+  /* Center content with flexbox */
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -28,13 +28,13 @@
 
 /* FORCE modal to center - override any library positioning */
 .wallet-adapter-modal {
-  /* Reset all positioning */
-  position: fixed !important;
-  top: 50% !important;
-  left: 50% !important;
+  /* Center positioning */
+  position: relative !important;
+  top: auto !important;
+  left: auto !important;
   right: auto !important;
   bottom: auto !important;
-  transform: translate(-50%, -50%) !important;
+  transform: none !important;
   
   /* Size and spacing */
   width: min(90vw, 450px) !important;
@@ -49,7 +49,7 @@
   opacity: 1 !important;
   visibility: visible !important;
   display: block !important;
-  z-index: 100000 !important;
+  z-index: 1 !important;
   
   /* Animation */
   animation: modalSlideIn 0.3s ease-out !important;
@@ -257,19 +257,22 @@
   left: 0 !important;
   right: 0 !important;
   bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  background: rgba(0, 0, 0, 0.7) !important;
+  background: rgba(0, 0, 0, 0.55) !important;
+  z-index: 9999 !important;
 }
 
 /* FORCE any nested modal containers to center */
-.wallet-adapter-modal-wrapper > * {
-  position: fixed !important;
-  top: 50% !important;
-  left: 50% !important;
-  transform: translate(-50%, -50%) !important;
-  margin: 0 !important;
+.wallet-adapter-modal-wrapper > .wallet-adapter-modal {
+  position: relative !important;
+  top: auto !important;
+  left: auto !important;
+  transform: none !important;
+  margin: 0 auto !important;
   right: auto !important;
   bottom: auto !important;
   width: min(90vw, 450px) !important;
@@ -282,6 +285,8 @@ div[role="dialog"].wallet-adapter-modal {
   margin: auto !important;
   top: auto !important;
   left: auto !important;
+  right: auto !important;
+  bottom: auto !important;
   transform: none !important;
 }
 
@@ -329,26 +334,25 @@ body:has(.wallet-adapter-modal-wrapper) {
   z-index: -1 !important;
 }
 
-/* EXTRA AGGRESSIVE CENTERING - catch all possible modal containers */
-[data-reach-dialog-overlay],
-[role="dialog"][data-reach-dialog-content],
+/* WALLET-SPECIFIC CENTERING - only target wallet modal containers */
+.wallet-adapter-modal-wrapper[data-reach-dialog-overlay],
 .wallet-adapter-modal-overlay,
-div[class*="modal-overlay"],
-div[class*="modal-wrapper"] {
+div[class*="wallet-adapter"][class*="modal-overlay"],
+div[class*="wallet-adapter"][class*="modal-wrapper"] {
   position: fixed !important;
   inset: 0 !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
   background: rgba(0, 0, 0, 0.7) !important;
-  z-index: 99999 !important;
+  z-index: 9999 !important;
 }
 
-/* Force any dialog content to be centered */
-[role="dialog"][data-reach-dialog-content],
-[data-reach-dialog-content],
-div[class*="modal-content"],
-div[class*="modal"][role="dialog"] {
+/* Force wallet dialog content to be centered - be more specific */
+.wallet-adapter-modal-wrapper [role="dialog"][data-reach-dialog-content],
+.wallet-adapter-modal-wrapper [data-reach-dialog-content],
+.wallet-adapter-modal[role="dialog"],
+div[class*="wallet-adapter"][class*="modal-content"] {
   position: fixed !important;
   top: 50% !important;
   left: 50% !important;
@@ -371,12 +375,12 @@ div[class*="modal"][role="dialog"] {
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  z-index: 99999 !important;
+  z-index: 9999 !important;
 }
 
-/* Ensure inner container and content never jump left */
+/* Ensure inner container and content never jump left - wallet specific only */
 .wallet-adapter-modal-container,
-[data-reach-dialog-content] {
+.wallet-adapter-modal-wrapper [data-reach-dialog-content] {
   position: relative !important;
   margin: 0 auto !important;
   transform: none !important;
@@ -387,40 +391,47 @@ div[class*="modal"][role="dialog"] {
   justify-content: center !important;
 }
 
-/* Force flexbox centering on any direct children */
-.wallet-adapter-modal-wrapper > div,
-[data-reach-dialog-overlay] > div,
-[role="dialog"] {
-  position: fixed !important;
-  top: 50% !important;
-  left: 50% !important;
-  transform: translate(-50%, -50%) !important;
-  margin: 0 !important;
+/* Force flexbox centering on wallet modal children only */
+.wallet-adapter-modal-wrapper > .wallet-adapter-modal,
+.wallet-adapter-modal-wrapper[data-reach-dialog-overlay] > .wallet-adapter-modal {
+  position: relative !important;
+  top: auto !important;
+  left: auto !important;
+  transform: none !important;
+  margin: 0 auto !important;
 }
 
-/* Responsive mobile centering */
+/* Responsive mobile centering - wallet specific */
 @media (max-width: 768px) {
   .wallet-adapter-modal-wrapper,
-  [data-reach-dialog-overlay] {
+  .wallet-adapter-modal-wrapper[data-reach-dialog-overlay] {
     padding: 20px !important;
     box-sizing: border-box !important;
   }
   
   .wallet-adapter-modal,
-  [role="dialog"][data-reach-dialog-content] {
+  .wallet-adapter-modal-wrapper [role="dialog"][data-reach-dialog-content] {
     margin: 0 !important;
     width: min(90vw, 450px) !important;
     max-width: 450px !important;
   }
 }
 
-/* NUCLEAR OPTION: Force visibility on ALL wallet modal elements */
+/* Force visibility on wallet modal elements only */
 .wallet-adapter-modal *,
-[data-reach-dialog-content] *,
-[role="dialog"] *,
-.wallet-adapter-modal-wrapper * {
+.wallet-adapter-modal-wrapper [data-reach-dialog-content] *,
+.wallet-adapter-modal[role="dialog"] *,
+.wallet-adapter-modal-wrapper *,
+.wallet-adapter-modal-title,
+.wallet-adapter-modal-list,
+.wallet-adapter-modal-list-item,
+.wallet-adapter-modal-list-item button,
+.wallet-adapter-modal-list-item img,
+.wallet-adapter-modal-list-item span {
   opacity: 1 !important;
   visibility: visible !important;
+  display: block !important;
+  color: inherit !important;
 }
 
 /* Ensure all wallet adapter elements are visible */
@@ -437,9 +448,33 @@ div[class*="modal"][role="dialog"] {
 .wallet-adapter-modal span,
 .wallet-adapter-modal button,
 .wallet-adapter-modal-title,
-.wallet-adapter-modal-list-item button {
-  color: inherit !important;
+.wallet-adapter-modal-list-item,
+.wallet-adapter-modal-list-item button,
+.wallet-adapter-modal-list-item span,
+.wallet-adapter-modal-list-item img {
+  color: #000 !important;
   opacity: 1 !important;
   visibility: visible !important;
   display: block !important;
+  font-size: 14px !important;
+  line-height: 1.4 !important;
+}
+
+/* Force button specific styling */
+.wallet-adapter-modal-list-item button {
+  display: flex !important;
+  align-items: center !important;
+  width: 100% !important;
+  padding: 16px !important;
+  background: transparent !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 12px !important;
+  cursor: pointer !important;
+  text-align: left !important;
+  gap: 12px !important;
+}
+
+.wallet-adapter-modal-list-item button:hover {
+  background: #f9fafb !important;
+  border-color: #d1d5db !important;
 }

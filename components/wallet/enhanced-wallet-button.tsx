@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useWallet, useConnection } from "@solana/wallet-adapter-react"
-import { useWalletModal } from "@solana/wallet-adapter-react-ui"
 import { useAuth } from "@/contexts/auth-context"
 import { LAMPORTS_PER_SOL } from "@solana/web3.js"
 import { Button } from "@/components/ui/button"
@@ -27,6 +26,21 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 
+// Global Phantom types
+declare global {
+  interface Window {
+    phantom?: {
+      solana?: {
+        isPhantom: boolean
+        connect: () => Promise<{ publicKey: any }>
+        disconnect: () => Promise<void>
+        on: (event: string, callback: Function) => void
+        request: (options: any) => Promise<any>
+      }
+    }
+  }
+}
+
 interface EnhancedWalletButtonProps {
   className?: string
   showBalance?: boolean
@@ -41,9 +55,8 @@ export function EnhancedWalletButton({
   size = "default"
 }: EnhancedWalletButtonProps) {
   const { user } = useAuth()
-  const { wallet, publicKey, connected, connecting, disconnecting, disconnect } = useWallet()
+  const { wallets, wallet, publicKey, connected, connecting, disconnecting, disconnect, select } = useWallet()
   const { connection } = useConnection()
-  const { visible, setVisible } = useWalletModal()
   const [balance, setBalance] = useState<number | null>(null)
   const [linking, setLinking] = useState(false)
   const [mounted, setMounted] = useState(false)
@@ -53,21 +66,42 @@ export function EnhancedWalletButton({
     setMounted(true)
   }, [])
 
-  // Real Solana balance fetch
+  // Real Solana balance fetch from actual network
   const fetchBalance = useCallback(async () => {
     if (publicKey && connected && connection) {
       setBalanceLoading(true)
       try {
-        console.log('Fetching real balance for:', publicKey.toBase58())
+        console.log('🔍 Fetching REAL Solana balance from network for:', publicKey.toBase58())
+        console.log('🌐 RPC Endpoint:', connection.rpcEndpoint)
+        
         const balance = await connection.getBalance(publicKey)
         const solBalance = balance / LAMPORTS_PER_SOL
-        console.log('Real balance fetched:', solBalance, 'SOL')
+        
+        console.log('💰 REAL balance fetched from Solana network:', {
+          lamports: balance,
+          sol: solBalance,
+          address: publicKey.toBase58(),
+          rpc: connection.rpcEndpoint
+        })
+        
         setBalance(solBalance)
+        
+        // Also fetch some network info to verify real connection
+        try {
+          const slot = await connection.getSlot()
+          const blockTime = await connection.getBlockTime(slot)
+          console.log('📊 Network verification - Real Solana data:', {
+            currentSlot: slot,
+            blockTime: blockTime ? new Date(blockTime * 1000) : 'N/A'
+          })
+        } catch (netError) {
+          console.warn('⚠️ Network verification failed:', netError)
+        }
+        
       } catch (error) {
-        console.error('Error fetching real balance:', error)
+        console.error('❌ Error fetching real balance from Solana network:', error)
         setBalance(null)
-        // Try to show error to user
-        console.warn('Failed to fetch wallet balance. Check RPC connection.')
+        toast.error('Failed to fetch wallet balance from Solana network')
       } finally {
         setBalanceLoading(false)
       }
@@ -115,29 +149,77 @@ export function EnhancedWalletButton({
 
   // Auto-link wallet when connected and user is signed in
   useEffect(() => {
+    console.log('🔗 Wallet linking check:', {
+      connected,
+      hasUser: !!user,
+      userEmail: user?.email,
+      hasPublicKey: !!publicKey,
+      hasWallet: !!wallet,
+      linking
+    })
+    
     if (connected && user && publicKey && wallet && !linking) {
+      console.log('✅ All conditions met - linking wallet to account...')
       linkWalletToAccount()
+    } else if (connected && !user) {
+      console.warn('⚠️ Wallet connected but user not signed in - wallet will not be linked to account')
+      toast.error('Please sign in to your account first, then connect your wallet')
     }
   }, [connected, user, publicKey, wallet, linking, linkWalletToAccount])
 
-  const handleConnect = useCallback(() => {
-    console.log('EnhancedWalletButton: Connect clicked, setting modal visible...')
-    console.log('Current wallet modal state:', { visible })
-    console.log('Available wallets:', wallet?.adapter.name)
-    console.log('Connection status:', { connected, connecting })
-    
-    // Add debug info about wallet adapters
-    console.log('Wallet adapters available:', {
-      phantom: typeof window !== 'undefined' && 'phantom' in window,
-      solflare: typeof window !== 'undefined' && 'solflare' in window,
+  const handleConnect = useCallback(async () => {
+    console.log('EnhancedWalletButton: Starting REAL Phantom connection...')
+    console.log('Pre-connection checks:', {
+      phantomInWindow: typeof window !== 'undefined' && 'phantom' in window,
+      phantomSolana: typeof window !== 'undefined' && window.phantom?.solana,
+      isPhantom: typeof window !== 'undefined' && window.phantom?.solana?.isPhantom,
+      walletAdaptersFound: wallets.length,
+      connected,
+      connecting
     })
     
-    if (setVisible) {
-      setVisible(true)
-    } else {
-      console.warn('WalletModalProvider not available')
+    // First verify Phantom extension is actually installed
+    if (typeof window !== 'undefined' && !window.phantom?.solana?.isPhantom) {
+      console.error('❌ Real Phantom extension not detected')
+      toast.error('Phantom wallet extension not found. Please install Phantom browser extension.')
+      return
     }
-  }, [setVisible, visible, wallet, connected, connecting])
+    
+    try {
+      // Find Phantom wallet adapter
+      const phantomWallet = wallets.find(w => w.adapter.name === 'Phantom')
+      
+      if (!phantomWallet) {
+        console.error('❌ Phantom wallet adapter not found in wallets list')
+        toast.error('Phantom wallet adapter not available')
+        return
+      }
+      
+      console.log('✅ Found Phantom wallet adapter:', {
+        name: phantomWallet.adapter.name,
+        readyState: phantomWallet.adapter.readyState,
+        connected: phantomWallet.adapter.connected
+      })
+      
+      // Attempt real connection
+      console.log('🔗 Initiating real Phantom connection...')
+      await select(phantomWallet.adapter.name)
+      
+      // Log success with real connection details
+      console.log('✅ Real Phantom connection successful!')
+      toast.success('✅ Real Phantom wallet connected!')
+      
+    } catch (error: any) {
+      console.error('❌ Real Phantom connection error:', error)
+      if (error.message?.includes('User rejected') || error.message?.includes('User denied')) {
+        toast.error('Connection cancelled by user')
+      } else if (error.message?.includes('Wallet not ready')) {
+        toast.error('Phantom wallet not ready. Please unlock your wallet.')
+      } else {
+        toast.error(`Connection failed: ${error.message}`)
+      }
+    }
+  }, [wallets, select, connected, connecting])
 
   const handleDisconnect = useCallback(async () => {
     try {
