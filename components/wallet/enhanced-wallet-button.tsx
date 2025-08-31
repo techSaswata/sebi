@@ -117,7 +117,20 @@ export function EnhancedWalletButton({
 
   // Link wallet to user account
   const linkWalletToAccount = useCallback(async () => {
-    if (!user || !publicKey || !wallet) return
+    if (!user || !publicKey || !wallet) {
+      console.log('❌ Cannot link wallet - missing requirements:', {
+        hasUser: !!user,
+        hasPublicKey: !!publicKey,
+        hasWallet: !!wallet
+      })
+      return
+    }
+
+    console.log('🔗 Starting wallet linking process...', {
+      userEmail: user.email,
+      walletAddress: publicKey.toBase58(),
+      walletType: wallet.adapter.name
+    })
 
     setLinking(true)
     try {
@@ -132,15 +145,20 @@ export function EnhancedWalletButton({
         })
       })
 
+      console.log('📡 Wallet linking response status:', response.status)
+      
       const result = await response.json()
+      console.log('📡 Wallet linking response:', result)
       
       if (result.success) {
+        console.log('✅ Wallet linked successfully!')
         toast.success('Wallet linked to your account!')
       } else {
+        console.error('❌ Wallet linking failed:', result.error)
         toast.error(result.error || 'Failed to link wallet')
       }
     } catch (error) {
-      console.error('Error linking wallet:', error)
+      console.error('❌ Error linking wallet:', error)
       toast.error('Failed to link wallet to account')
     } finally {
       setLinking(false)
@@ -155,7 +173,12 @@ export function EnhancedWalletButton({
       userEmail: user?.email,
       hasPublicKey: !!publicKey,
       hasWallet: !!wallet,
-      linking
+      linking,
+      userDetails: user ? {
+        id: user.id,
+        email: user.email,
+        emailVerified: user.email_confirmed_at
+      } : null
     })
     
     if (connected && user && publicKey && wallet && !linking) {
@@ -164,6 +187,14 @@ export function EnhancedWalletButton({
     } else if (connected && !user) {
       console.warn('⚠️ Wallet connected but user not signed in - wallet will not be linked to account')
       toast.error('Please sign in to your account first, then connect your wallet')
+    } else {
+      console.log('⏳ Waiting for all conditions to be met...', {
+        connected,
+        hasUser: !!user,
+        hasPublicKey: !!publicKey,
+        hasWallet: !!wallet,
+        linking
+      })
     }
   }, [connected, user, publicKey, wallet, linking, linkWalletToAccount])
 

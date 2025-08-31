@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query, getCache, setCache } from '@/lib/database';
+import { getCache, setCache, getSupabase } from '@/lib/database';
 import { ApiResponse, Trade, TradeRequest } from '@/types/api';
 
 // GET /api/trades - List trades with filtering
@@ -56,22 +56,60 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const result = await query(`
-      SELECT 
-        t.*,
-        b.name as bond_name,
-        b.issuer,
-        b.bond_mint,
-        m.market_pda
-      FROM trades t
-      JOIN markets m ON t.market_id = m.id
-      JOIN bonds b ON m.bond_id = b.id
-      ${whereClause}
-      ORDER BY t.created_at DESC
-      LIMIT $1 OFFSET $2
-    `, params);
-
-    const trades = result.rows;
+    const supabase = getSupabase();
+    
+    // Get trades with market and bond data
+    let tradesQuery = supabase
+      .from('trades')
+      .select(`
+        *,
+        markets!inner(
+          market_pda,
+          bonds!inner(
+            name,
+            issuer,
+            bond_mint
+          )
+        )
+      `);
+    
+    // Apply filters
+    if (wallet) {
+      tradesQuery = tradesQuery.eq('user_wallet', wallet);
+    }
+    
+    if (marketId) {
+      tradesQuery = tradesQuery.eq('market_id', marketId);
+    }
+    
+    if (side) {
+      tradesQuery = tradesQuery.eq('side', side);
+    }
+    
+    if (status) {
+      tradesQuery = tradesQuery.eq('status', status);
+    }
+    
+    // Apply ordering and pagination
+    tradesQuery = tradesQuery
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+    
+    const { data: tradesData, error } = await tradesQuery;
+    
+    if (error) {
+      console.error('Supabase error:', error);
+      throw error;
+    }
+    
+    // Transform the data to match the expected format
+    const trades = tradesData?.map((trade: any) => ({
+      ...trade,
+      bond_name: trade.markets?.bonds?.name,
+      issuer: trade.markets?.bonds?.issuer,
+      bond_mint: trade.markets?.bonds?.bond_mint,
+      market_pda: trade.markets?.market_pda
+    })) || [];
 
     // Cache for 1 minute if wallet-specific
     if (cacheKey) {
@@ -107,26 +145,33 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const supabase = getSupabase();
+    
     // Check if market exists and is not paused
-    const marketCheck = await query(`
-      SELECT 
-        m.id,
-        m.paused,
-        m.price_per_token_scaled,
-        b.status as bond_status
-      FROM markets m
-      JOIN bonds b ON m.bond_id = b.id
-      WHERE m.id = $1
-    `, [body.market_id]);
+    const { data: marketData, error: marketError } = await supabase
+      .from('markets')
+      .select(`
+        id,
+        paused,
+        price_per_token_scaled,
+        bonds!inner(
+          status
+        )
+      `)
+      .eq('id', body.market_id)
+      .single();
 
-    if (marketCheck.rows.length === 0) {
+    if (marketError || !marketData) {
       return NextResponse.json(
         { success: false, error: 'Market not found' } as ApiResponse,
         { status: 404 }
       );
     }
 
-    const market = marketCheck.rows[0];
+    const market = {
+      ...(marketData as any),
+      bond_status: (marketData as any).bonds?.status
+    };
 
     if (market.paused) {
       return NextResponse.json(
@@ -143,8 +188,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Check for duplicate transaction signature
-    const existingTrade = await query('SELECT id FROM trades WHERE tx_signature = $1', [body.tx_signature]);
-    if (existingTrade.rows.length > 0) {
+    const { data: existingTrades, error: existingError } = await supabase
+      .from('trades')
+      .select('id')
+      .eq('tx_signature', body.tx_signature);
+    
+    if (existingError) {
+      console.error('Error checking existing trade:', existingError);
+      throw existingError;
+    }
+    
+    if (existingTrades && existingTrades.length > 0) {
       return NextResponse.json(
         { success: false, error: 'Trade with this transaction signature already exists' } as ApiResponse,
         { status: 409 }
@@ -173,37 +227,42 @@ export async function POST(request: NextRequest) {
     const totalValue = Math.floor((body.amount * finalPrice) / 1000000); // Convert from scaled
 
     // Create trade record
-    const result = await query(`
-      INSERT INTO trades (
-        tx_signature, market_id, user_wallet, side, amount, 
-        price_scaled, total_value, status
-      ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, 'pending'
-      ) RETURNING *
-    `, [
-      body.tx_signature,
-      body.market_id,
-      body.user_wallet,
-      body.side,
-      body.amount,
-      finalPrice,
-      totalValue
-    ]);
+    const { data: newTrades, error: insertError } = await supabase
+      .from('trades')
+      .insert({
+        tx_signature: body.tx_signature,
+        market_id: body.market_id,
+        user_wallet: body.user_wallet,
+        side: body.side,
+        amount: body.amount,
+        price_scaled: finalPrice,
+        total_value: totalValue,
+        status: 'pending'
+      } as any)
+      .select()
+      .single();
 
-    const newTrade = result.rows[0];
+    if (insertError) {
+      console.error('Error inserting trade:', insertError);
+      throw insertError;
+    }
+
+    const newTrade = newTrades;
 
     // Create or update user record
-    await query(`
-      INSERT INTO users (wallet_address) 
-      VALUES ($1) 
-      ON CONFLICT (wallet_address) DO NOTHING
-    `, [body.user_wallet]);
+    await supabase
+      .from('users')
+      .upsert({ wallet_address: body.user_wallet } as any, { onConflict: 'wallet_address' });
 
     // Log system event
-    await query(`
-      INSERT INTO system_events (event_type, entity_id, tx_signature, data) 
-      VALUES ('trade', $1, $2, $3)
-    `, [newTrade.id.toString(), body.tx_signature, JSON.stringify(newTrade)]);
+    await supabase
+      .from('system_events')
+      .insert({
+        event_type: 'trade',
+        entity_id: (newTrade as any).id.toString(),
+        tx_signature: body.tx_signature,
+        data: JSON.stringify(newTrade)
+      } as any);
 
     // Clear cache for this wallet
     await setCache(`trades:${body.user_wallet}:*`, null, 0);

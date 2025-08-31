@@ -34,7 +34,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Get initial session
     const getInitialSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
+      const { data: { session }, error } = await supabase.auth.getSession()
+      console.log('🔐 Initial session check:', {
+        hasSession: !!session,
+        hasUser: !!session?.user,
+        userEmail: session?.user?.email,
+        error: error?.message
+      })
       setSession(session)
       setUser(session?.user ?? null)
       setLoading(false)
@@ -45,6 +51,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('🔐 Auth state change:', {
+          event,
+          hasSession: !!session,
+          hasUser: !!session?.user,
+          userEmail: session?.user?.email
+        })
         setSession(session)
         setUser(session?.user ?? null)
         setLoading(false)
@@ -86,7 +98,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Sign in with Google
   const signInWithGoogle = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
+    console.log('🔐 Starting Google OAuth flow...')
+    
+    const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
@@ -95,6 +109,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           prompt: 'consent',
         },
       },
+    })
+
+    console.log('🔐 OAuth response:', {
+      hasData: !!data,
+      hasError: !!error,
+      error: error?.message,
+      url: data?.url
     })
 
     if (error) {

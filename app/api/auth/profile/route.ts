@@ -13,14 +13,15 @@ export async function GET(request: NextRequest) {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
-          get(name: string) {
-            const value = cookieStore.get(name)?.value
-            console.log(`🍪 Getting cookie ${name}:`, value ? 'exists' : 'missing')
-            return value
+          getAll() {
+            return cookieStore.getAll()
           },
-          set(name: string, value: string, options: any) {},
-          remove(name: string, options: any) {},
-        },
+          setAll(cookiesToSet: any[]) {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              cookieStore.set(name, value, options)
+            })
+          }
+        }
       }
     )
 
@@ -128,8 +129,12 @@ export async function PUT(request: NextRequest) {
           get(name: string) {
             return cookieStore.get(name)?.value
           },
-          set(name: string, value: string, options: any) {},
-          remove(name: string, options: any) {},
+          set(name: string, value: string, options: any) {
+            cookieStore.set(name, value, options)
+          },
+          remove(name: string, options: any) {
+            cookieStore.set(name, '', { ...options, maxAge: 0 })
+          },
         },
       }
     )
@@ -210,10 +215,10 @@ export async function POST(request: NextRequest) {
             return cookieStore.get(name)?.value
           },
           set(name: string, value: string, options: any) {
-            // No-op for API routes
+            cookieStore.set(name, value, options)
           },
           remove(name: string, options: any) {
-            // No-op for API routes  
+            cookieStore.set(name, '', { ...options, maxAge: 0 })
           },
         },
       }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query, getCache, setCache } from '@/lib/database';
+import { getCache, setCache, getSupabase } from '@/lib/database';
 import { ApiResponse, Market, CreateMarketRequest } from '@/types/api';
 
 // GET /api/markets - List all markets
@@ -39,23 +39,54 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: true, data: cached } as ApiResponse<Market[]>);
     }
 
-    const result = await query(`
-      SELECT 
-        m.*,
-        b.name as bond_name,
-        b.issuer,
-        b.bond_mint,
-        b.coupon_rate,
-        b.maturity_date,
-        b.status as bond_status
-      FROM markets m
-      JOIN bonds b ON m.bond_id = b.id
-      ${whereClause}
-      ORDER BY m.created_at DESC
-      LIMIT $1 OFFSET $2
-    `, params);
-
-    const markets = result.rows;
+    const supabase = getSupabase();
+    
+    // Get markets with bond data
+    let marketsQuery = supabase
+      .from('markets')
+      .select(`
+        *,
+        bonds!inner(
+          name,
+          issuer,
+          bond_mint,
+          coupon_rate,
+          maturity_date,
+          status
+        )
+      `);
+    
+    // Apply filters
+    if (bondId) {
+      marketsQuery = marketsQuery.eq('bond_id', bondId);
+    }
+    
+    if (paused !== null) {
+      marketsQuery = marketsQuery.eq('paused', paused === 'true');
+    }
+    
+    // Apply ordering and pagination
+    marketsQuery = marketsQuery
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+    
+    const { data: marketsData, error } = await marketsQuery;
+    
+    if (error) {
+      console.error('Supabase error:', error);
+      throw error;
+    }
+    
+    // Transform the data to match the expected format
+    const markets = marketsData?.map(market => ({
+      ...market,
+      bond_name: market.bonds?.name,
+      issuer: market.bonds?.issuer,
+      bond_mint: market.bonds?.bond_mint,
+      coupon_rate: market.bonds?.coupon_rate,
+      maturity_date: market.bonds?.maturity_date,
+      bond_status: market.bonds?.status
+    })) || [];
 
     // Cache for 3 minutes
     await setCache(cacheKey, markets, 180);
@@ -98,9 +129,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const supabase = getSupabase();
+    
     // Check if bond exists
-    const bondCheck = await query('SELECT id FROM bonds WHERE id = $1', [body.bond_id]);
-    if (bondCheck.rows.length === 0) {
+    const { data: bondData, error: bondError } = await supabase
+      .from('bonds')
+      .select('id')
+      .eq('id', body.bond_id)
+      .single();
+    
+    if (bondError || !bondData) {
       return NextResponse.json(
         { success: false, error: 'Bond not found' } as ApiResponse,
         { status: 404 }
@@ -108,8 +146,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if market already exists for this bond
-    const existingMarket = await query('SELECT id FROM markets WHERE bond_id = $1', [body.bond_id]);
-    if (existingMarket.rows.length > 0) {
+    const { data: existingMarkets, error: existingError } = await supabase
+      .from('markets')
+      .select('id')
+      .eq('bond_id', body.bond_id);
+    
+    if (existingError) {
+      console.error('Error checking existing market:', existingError);
+      throw existingError;
+    }
+    
+    if (existingMarkets && existingMarkets.length > 0) {
       return NextResponse.json(
         { success: false, error: 'Market already exists for this bond' } as ApiResponse,
         { status: 409 }
@@ -117,40 +164,48 @@ export async function POST(request: NextRequest) {
     }
 
     // Insert new market
-    const result = await query(`
-      INSERT INTO markets (
-        bond_id, market_pda, price_per_token_scaled, 
-        vault_bond_account, vault_usdc_account, admin_pubkey,
-        usdc_mint
-      ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7
-      ) RETURNING *
-    `, [
-      body.bond_id,
-      body.market_pda,
-      body.initial_price_scaled,
-      body.vault_bond_account,
-      body.vault_usdc_account,
-      body.admin_pubkey,
-      process.env.USDC_MINT_ADDRESS || '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'
-    ]);
+    const { data: newMarkets, error: insertError } = await supabase
+      .from('markets')
+      .insert({
+        bond_id: body.bond_id,
+        market_pda: body.market_pda,
+        price_per_token_scaled: body.initial_price_scaled,
+        vault_bond_account: body.vault_bond_account,
+        vault_usdc_account: body.vault_usdc_account,
+        admin_pubkey: body.admin_pubkey,
+        usdc_mint: process.env.USDC_MINT_ADDRESS || '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'
+      })
+      .select()
+      .single();
 
-    const newMarket = result.rows[0];
+    if (insertError) {
+      console.error('Error inserting market:', insertError);
+      throw insertError;
+    }
+
+    const newMarket = newMarkets;
 
     // Clear cache
     await setCache('markets:*', null, 0);
 
     // Log system event
-    await query(`
-      INSERT INTO system_events (event_type, entity_id, data) 
-      VALUES ('market_init', $1, $2)
-    `, [newMarket.id.toString(), JSON.stringify(newMarket)]);
+    await supabase
+      .from('system_events')
+      .insert({
+        event_type: 'market_init',
+        entity_id: newMarket.id.toString(),
+        data: JSON.stringify(newMarket)
+      });
 
     // Create initial price history entry
-    await query(`
-      INSERT INTO price_history (market_id, price_scaled, source, volume_24h)
-      VALUES ($1, $2, 'manual', 0)
-    `, [newMarket.id, body.initial_price_scaled]);
+    await supabase
+      .from('price_history')
+      .insert({
+        market_id: newMarket.id,
+        price_scaled: body.initial_price_scaled,
+        source: 'manual',
+        volume_24h: 0
+      });
 
     return NextResponse.json({
       success: true,

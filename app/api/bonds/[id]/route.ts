@@ -15,74 +15,70 @@ export async function GET(
       )
     }
 
-    // Get bond details from database
-    const bondQuery = `
-      SELECT 
-        b.*,
-        m.market_id,
-        m.current_price_scaled,
-        m.total_supply_scaled,
-        m.available_supply_scaled,
-        m.last_trade_at,
-        m.volume_24h,
-        m.price_change_24h
-      FROM bonds b
-      LEFT JOIN markets m ON b.id = m.bond_id
-      WHERE b.id = $1
-    `
-
-    const bonds = await query(bondQuery, [bondId])
-
-    if (bonds.rows.length === 0) {
+    // Get bond data
+    const { getSupabase } = await import('@/lib/database')
+    const supabase = getSupabase()
+    
+    const { data: bondData, error: bondError } = await supabase
+      .from('bonds')
+      .select('*')
+      .eq('id', parseInt(bondId))
+      .single()
+    
+    if (bondError) {
+      console.error('Bond query error:', bondError)
+      return NextResponse.json(
+        { success: false, error: `Bond not found: ${bondError.message}` },
+        { status: 404 }
+      )
+    }
+    
+    if (!bondData) {
       return NextResponse.json(
         { success: false, error: 'Bond not found' },
         { status: 404 }
       )
     }
+    
+    const bond = bondData
 
-    const bond = bonds.rows[0]
-
+    // Get market data for this bond
+    const { data: marketData, error: marketError } = await supabase
+      .from('markets')
+      .select('*')
+      .eq('bond_id', (bond as any).id)
+      .single()
+    
     // Get recent price history
-    const priceHistoryQuery = `
-      SELECT price_scaled, created_at
-      FROM price_history
-      WHERE market_id = $1
-      ORDER BY created_at DESC
-      LIMIT 30
-    `
-
-    const priceHistory = await query(priceHistoryQuery, [(bond as any).market_id])
-
+    const { data: priceHistoryData, error: priceHistoryError } = await supabase
+      .from('price_history')
+      .select('price_scaled, created_at')
+      .eq('market_id', (marketData as any)?.id || 0)
+      .order('created_at', { ascending: false })
+      .limit(30)
+    
     // Get recent trades
-    const tradesQuery = `
-      SELECT 
-        t.side,
-        t.amount,
-        t.price_scaled,
-        t.total_value,
-        t.created_at,
-        t.user_wallet
-      FROM trades t
-      WHERE t.market_id = $1
-      AND t.status = 'confirmed'
-      ORDER BY t.created_at DESC
-      LIMIT 10
-    `
-
-    const recentTrades = await query(tradesQuery, [(bond as any).market_id])
+    const { data: tradesData, error: tradesError } = await supabase
+      .from('trades')
+      .select('side, amount, price_scaled, total_value, created_at, user_wallet')
+      .eq('market_id', (marketData as any)?.id || 0)
+      .eq('status', 'confirmed')
+      .order('created_at', { ascending: false })
+      .limit(10)
 
     return NextResponse.json({
       success: true,
       bond: {
         ...(bond as any),
-        current_price: (bond as any).current_price_scaled ? (bond as any).current_price_scaled / 1000000 : 0,
-        total_supply: (bond as any).total_supply_scaled ? (bond as any).total_supply_scaled / 1000000 : 0,
-        available_supply: (bond as any).available_supply_scaled ? (bond as any).available_supply_scaled / 1000000 : 0,
-        price_history: priceHistory.rows.map((p: any) => ({
+        ...(marketData as any),
+        current_price: (marketData as any)?.current_price_scaled ? (marketData as any).current_price_scaled / 1000000 : 0,
+        total_supply: (marketData as any)?.total_supply_scaled ? (marketData as any).total_supply_scaled / 1000000 : 0,
+        available_supply: (marketData as any)?.available_supply_scaled ? (marketData as any).available_supply_scaled / 1000000 : 0,
+        price_history: (priceHistoryData || []).map((p: any) => ({
           price: p.price_scaled / 1000000,
           timestamp: p.created_at
         })),
-        recent_trades: recentTrades.rows.map((t: any) => ({
+        recent_trades: (tradesData || []).map((t: any) => ({
           ...t,
           price: t.price_scaled / 1000000,
           amount: t.amount / 1000000,

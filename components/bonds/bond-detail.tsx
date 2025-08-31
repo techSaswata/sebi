@@ -13,20 +13,16 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 interface BondDetailResponse {
   bond: any;
-  price_history: any[];
-  recent_trades: any[];
-  stats_24h: any;
 }
 
 export function BondDetail({ id }: { id: string }) {
-  const { data, error, isLoading } = useSWR<ApiResponse<BondDetailResponse>>(
+  const { data, error, isLoading } = useSWR<ApiResponse<{ bond: any }>>(
     id ? `/api/bonds/${id}` : null, 
     fetcher,
     { refreshInterval: 30000 }
   )
   
-  const bondDetails = data?.success ? data.data : null
-  const bond = bondDetails?.bond
+  const bond = data?.success ? (data as any).bond : null
 
   if (error) {
     return (
@@ -67,7 +63,7 @@ export function BondDetail({ id }: { id: string }) {
 
   // Extract bond data with proper type conversion
   const maturity = bond.maturity_date ? new Date(bond.maturity_date).toLocaleDateString() : "—"
-  const title = bond.name || bond.isin || String(bond.bond_id)
+  const title = bond.name || bond.isin || String(bond.id)
   const issuer = bond.issuer || "—"
   const rating = bond.credit_rating || "—"
   const ratingAgency = bond.credit_rating_agency || ""
@@ -80,8 +76,8 @@ export function BondDetail({ id }: { id: string }) {
   
   // Calculate additional metrics
   const isActive = bond.status === 'active'
-  const marketPaused = bondDetails?.bond?.market_paused
-  const hasMarket = bondDetails?.bond?.market_id
+  const marketPaused = bond?.market_paused
+  const hasMarket = bond?.market_id
   const canTrade = isActive && hasMarket && !marketPaused
 
   return (
@@ -193,7 +189,7 @@ export function BondDetail({ id }: { id: string }) {
       {/* Trading Actions */}
       <div className="flex gap-3">
         {canTrade ? (
-          <BuyModal price={listedYield} bondId={String(bond.bond_id)} />
+          <BuyModal price={listedYield} bondId={String(bond.id)} />
         ) : (
           <Button disabled>
             {!hasMarket ? "No Market Available" : "Trading Paused"}
@@ -202,26 +198,26 @@ export function BondDetail({ id }: { id: string }) {
       </div>
 
       {/* Market Statistics */}
-      {bondDetails?.stats_24h && (
+      {bond?.stats_24h && (
         <Card>
           <CardContent className="p-6">
             <h3 className="text-lg font-semibold mb-4">24H Statistics</h3>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div>
                 <p className="text-sm text-muted-foreground">Trades</p>
-                <p className="text-xl font-semibold">{bondDetails.stats_24h.trade_count || 0}</p>
+                <p className="text-xl font-semibold">{bond.stats_24h.trade_count || 0}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Volume</p>
-                <p className="text-xl font-semibold">₹{Number(bondDetails.stats_24h.volume || 0).toLocaleString('en-IN')}</p>
+                <p className="text-xl font-semibold">₹{Number(bond.stats_24h.volume || 0).toLocaleString('en-IN')}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Min Price</p>
-                <p className="text-xl font-semibold">₹{Number(bondDetails.stats_24h.min_price || 0).toFixed(2)}</p>
+                <p className="text-xl font-semibold">₹{Number(bond.stats_24h.min_price || 0).toFixed(2)}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Max Price</p>
-                <p className="text-xl font-semibold">₹{Number(bondDetails.stats_24h.max_price || 0).toFixed(2)}</p>
+                <p className="text-xl font-semibold">₹{Number(bond.stats_24h.max_price || 0).toFixed(2)}</p>
               </div>
             </div>
           </CardContent>
@@ -229,12 +225,12 @@ export function BondDetail({ id }: { id: string }) {
       )}
 
       {/* Recent Trades */}
-      {bondDetails?.recent_trades && bondDetails.recent_trades.length > 0 && (
+      {bond?.recent_trades && bond.recent_trades.length > 0 && (
         <Card>
           <CardContent className="p-6">
             <h3 className="text-lg font-semibold mb-4">Recent Trades</h3>
             <div className="space-y-2">
-              {bondDetails.recent_trades.slice(0, 5).map((trade: any, index: number) => (
+              {bond.recent_trades.slice(0, 5).map((trade: any, index: number) => (
                 <div key={index} className="flex justify-between items-center py-2 border-b last:border-b-0">
                   <div className="flex items-center gap-2">
                     <Badge variant={trade.side === 'buy' ? 'default' : 'secondary'}>

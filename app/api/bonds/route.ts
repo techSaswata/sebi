@@ -86,8 +86,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if bond_mint already exists
-    const existingBond = await query('SELECT id FROM bonds WHERE bond_mint = $1', [body.bond_mint]);
-    if (existingBond.rows.length > 0) {
+    const { data: existingBonds, error: existingError } = await supabase
+      .from('bonds')
+      .select('id')
+      .eq('bond_mint', body.bond_mint);
+    
+    if (existingError) {
+      console.error('Error checking existing bond:', existingError);
+      throw existingError;
+    }
+    
+    if (existingBonds && existingBonds.length > 0) {
       return NextResponse.json(
         { success: false, error: 'Bond with this mint address already exists' } as ApiResponse,
         { status: 409 }
@@ -95,44 +104,47 @@ export async function POST(request: NextRequest) {
     }
 
     // Insert new bond
-    const result = await query(`
-      INSERT INTO bonds (
-        bond_mint, isin, issuer, name, coupon_rate, maturity_date, 
-        face_value, decimals, total_supply, credit_rating, 
-        credit_rating_agency, sector, interest_payment_frequency, 
-        listed_yield, min_investment, logo_url
-      ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
-      ) RETURNING *
-    `, [
-      body.bond_mint,
-      body.isin,
-      body.issuer,
-      body.name,
-      body.coupon_rate,
-      body.maturity_date,
-      body.face_value,
-      body.decimals || 6,
-      body.total_supply,
-      body.credit_rating,
-      body.credit_rating_agency,
-      body.sector,
-      body.interest_payment_frequency || 'monthly',
-      body.listed_yield,
-      body.min_investment,
-      body.logo_url
-    ]);
+    const { data: newBonds, error: insertError } = await supabase
+      .from('bonds')
+      .insert({
+        bond_mint: body.bond_mint,
+        isin: body.isin,
+        issuer: body.issuer,
+        name: body.name,
+        coupon_rate: body.coupon_rate,
+        maturity_date: body.maturity_date,
+        face_value: body.face_value,
+        decimals: body.decimals || 6,
+        total_supply: body.total_supply,
+        credit_rating: body.credit_rating,
+        credit_rating_agency: body.credit_rating_agency,
+        sector: body.sector,
+        interest_payment_frequency: body.interest_payment_frequency || 'monthly',
+        listed_yield: body.listed_yield,
+        min_investment: body.min_investment,
+        logo_url: body.logo_url
+      })
+      .select()
+      .single();
 
-    const newBond = result.rows[0];
+    if (insertError) {
+      console.error('Error inserting bond:', insertError);
+      throw insertError;
+    }
+
+    const newBond = newBonds;
 
     // Clear cache
     await setCache('bonds:all:*', null, 0);
 
     // Log system event
-    await query(`
-      INSERT INTO system_events (event_type, entity_id, data) 
-      VALUES ('bond_mint', $1, $2)
-    `, [newBond.id.toString(), JSON.stringify(newBond)]);
+    await supabase
+      .from('system_events')
+      .insert({
+        event_type: 'bond_mint',
+        entity_id: newBond.id.toString(),
+        data: JSON.stringify(newBond)
+      });
 
     return NextResponse.json({
       success: true,

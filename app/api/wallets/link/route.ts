@@ -23,8 +23,12 @@ export async function POST(request: NextRequest) {
           get(name: string) {
             return cookieStore.get(name)?.value
           },
-          set(name: string, value: string, options: any) {},
-          remove(name: string, options: any) {},
+          set(name: string, value: string, options: any) {
+            cookieStore.set(name, value, options)
+          },
+          remove(name: string, options: any) {
+            cookieStore.set(name, '', { ...options, maxAge: 0 })
+          },
         },
       }
     )
@@ -136,8 +140,12 @@ export async function DELETE(request: NextRequest) {
           get(name: string) {
             return cookieStore.get(name)?.value
           },
-          set(name: string, value: string, options: any) {},
-          remove(name: string, options: any) {},
+          set(name: string, value: string, options: any) {
+            cookieStore.set(name, value, options)
+          },
+          remove(name: string, options: any) {
+            cookieStore.set(name, '', { ...options, maxAge: 0 })
+          },
         },
       }
     )
@@ -192,6 +200,26 @@ export async function DELETE(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
+    const cookieStore = cookies()
+    
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value
+          },
+          set(name: string, value: string, options: any) {
+            cookieStore.set(name, value, options)
+          },
+          remove(name: string, options: any) {
+            cookieStore.set(name, '', { ...options, maxAge: 0 })
+          },
+        },
+      }
+    )
+
     // Get current user session
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     
@@ -225,67 +253,6 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('Error fetching wallets:', error)
-    return NextResponse.json(
-      { success: false, error: 'Internal server error' },
-      { status: 500 }
-    )
-  }
-}
-
-export async function DELETE(request: NextRequest) {
-  try {
-    const { walletAddress } = await request.json()
-
-    if (!walletAddress) {
-      return NextResponse.json(
-        { success: false, error: 'Wallet address is required' },
-        { status: 400 }
-      )
-    }
-
-    // Get current user session
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-    
-    if (userError || !user) {
-      return NextResponse.json(
-        { success: false, error: 'User not authenticated' },
-        { status: 401 }
-      )
-    }
-
-    // Remove wallet link
-    const { error: deleteError } = await supabase
-      .from('user_wallets')
-      .delete()
-      .eq('user_id', user.id)
-      .eq('wallet_address', walletAddress)
-
-    if (deleteError) {
-      console.error('Error unlinking wallet:', deleteError)
-      return NextResponse.json(
-        { success: false, error: 'Failed to unlink wallet' },
-        { status: 500 }
-      )
-    }
-
-    // Log the activity
-    await supabase
-      .from('user_activity_log')
-      .insert({
-        user_id: user.id,
-        wallet_address: walletAddress,
-        activity_type: 'wallet_unlinked',
-        description: 'Unlinked wallet from account',
-        metadata: { wallet_address: walletAddress }
-      })
-
-    return NextResponse.json({
-      success: true,
-      message: 'Wallet unlinked successfully'
-    })
-
-  } catch (error) {
-    console.error('Wallet unlinking error:', error)
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

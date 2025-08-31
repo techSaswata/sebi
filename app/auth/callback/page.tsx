@@ -17,7 +17,24 @@ export default function AuthCallback() {
   useEffect(() => {
     const handleAuthCallback = async () => {
       try {
+        console.log('🔄 Processing Supabase OAuth callback...')
+        
         const { data, error } = await supabase.auth.getSession()
+        
+        console.log('🔐 Callback result:', {
+          hasSession: !!data.session,
+          hasUser: !!data.session?.user,
+          userEmail: data.session?.user?.email,
+          error: error?.message,
+          sessionDetails: data.session ? {
+            accessToken: data.session.access_token ? 'present' : 'missing',
+            refreshToken: data.session.refresh_token ? 'present' : 'missing',
+            expiresAt: data.session.expires_at
+          } : null
+        })
+        
+        // Also check what cookies are available
+        console.log('🍪 Browser cookies:', document.cookie)
         
         if (error) {
           console.error('Auth callback error:', error)
@@ -26,10 +43,10 @@ export default function AuthCallback() {
         }
 
         if (data.session) {
-          // Successfully authenticated, redirect to dashboard
+          console.log('✅ Authentication successful, redirecting to dashboard...')
           router.push('/dashboard')
         } else {
-          // No session, redirect to home
+          console.log('❌ No session found, redirecting to home...')
           router.push('/')
         }
       } catch (err) {

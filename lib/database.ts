@@ -71,7 +71,99 @@ export async function query(text: string, params?: unknown[]): Promise<{ rows: u
       return { rows: data || [], rowCount: data?.length || 0 };
     }
     
-    // For complex queries, log and fallback
+    // Handle price_history queries
+    if (trimmedQuery.includes('FROM PRICE_HISTORY') || trimmedQuery.includes('FROM price_history')) {
+      let query = supabase.from('price_history').select('*');
+      
+      // Handle WHERE conditions for market_id
+      if (text.includes('WHERE market_id = $1') && params && params.length > 0) {
+        query = query.eq('market_id', params[0] as string);
+      }
+      
+      // Handle ORDER BY and LIMIT
+      if (text.includes('ORDER BY created_at DESC')) {
+        query = query.order('created_at', { ascending: false });
+      }
+      
+      if (text.includes('LIMIT 30')) {
+        query = query.limit(30);
+      }
+      
+      const { data, error } = await query;
+      if (error) throw error;
+      
+      const duration = Date.now() - start;
+      console.log('Executed Supabase query', { text: 'price_history', duration, rows: data?.length || 0 });
+      return { rows: data || [], rowCount: data?.length || 0 };
+    }
+    
+    // Handle trades queries
+    if (trimmedQuery.includes('FROM TRADES') || trimmedQuery.includes('FROM trades')) {
+      let query = supabase.from('trades').select('*');
+      
+      // Handle WHERE conditions
+      if (text.includes('WHERE t.market_id = $1') && params && params.length > 0) {
+        query = query.eq('market_id', params[0] as string);
+      }
+      
+      if (text.includes("AND t.status = 'confirmed'")) {
+        query = query.eq('status', 'confirmed');
+      }
+      
+      // Handle ORDER BY and LIMIT
+      if (text.includes('ORDER BY t.created_at DESC')) {
+        query = query.order('created_at', { ascending: false });
+      }
+      
+      if (text.includes('LIMIT 10')) {
+        query = query.limit(10);
+      }
+      
+      const { data, error } = await query;
+      if (error) throw error;
+      
+      const duration = Date.now() - start;
+      console.log('Executed Supabase query', { text: 'trades', duration, rows: data?.length || 0 });
+      return { rows: data || [], rowCount: data?.length || 0 };
+    }
+    
+    // Handle complex JOIN queries (like the bond details query)
+    if (trimmedQuery.includes('FROM BONDS B') && trimmedQuery.includes('LEFT JOIN MARKETS M')) {
+      // For now, return the bond data and handle market data separately
+      let bondQuery = supabase.from('bonds').select('*');
+      
+      if (text.includes('WHERE b.id = $1') && params && params.length > 0) {
+        bondQuery = bondQuery.eq('id', parseInt(params[0] as string));
+      }
+      
+      const { data: bondData, error: bondError } = await bondQuery;
+      if (bondError) throw bondError;
+      
+      if (bondData && bondData.length > 0) {
+        const bond = bondData[0] as any;
+        
+        // Get market data separately
+        const { data: marketData, error: marketError } = await supabase
+          .from('markets')
+          .select('*')
+          .eq('bond_id', bond.id)
+          .single();
+        
+        if (!marketError && marketData) {
+          // Merge bond and market data
+          const mergedData = { ...bond, ...(marketData as any) };
+          const duration = Date.now() - start;
+          console.log('Executed Supabase query', { text: 'bonds_with_markets', duration, rows: 1 });
+          return { rows: [mergedData], rowCount: 1 };
+        }
+      }
+      
+      const duration = Date.now() - start;
+      console.log('Executed Supabase query', { text: 'bonds_with_markets', duration, rows: bondData?.length || 0 });
+      return { rows: bondData || [], rowCount: bondData?.length || 0 };
+    }
+    
+    // For other complex queries, log and fallback
     console.warn('Complex query detected, may need manual conversion:', text.substring(0, 100));
     const duration = Date.now() - start;
     console.log('Executed fallback query', { text: text.substring(0, 50), duration });
